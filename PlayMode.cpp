@@ -8,6 +8,8 @@
 
 #include <random>
 
+#include "load_save_png.hpp"
+
 PlayMode::PlayMode() {
 	//TODO:
 	// you *must* use an asset pipeline of some sort to generate tiles.
@@ -17,6 +19,46 @@ PlayMode::PlayMode() {
 	//   and check that script into your repository.
 
 	//Also, *don't* use these tiles in your game:
+
+	std::vector< glm::u8vec4 > data;
+	glm::uvec2 size;
+	load_png("assets/coin.png", &size, &data, UpperLeftOrigin);
+
+	//PPU466::Tile tile;
+	glm::u8vec4 transparent = glm::u8vec4(0x00, 0x00, 0x00, 0x00);
+	uint32_t color_count = 0;
+	uint32_t pixel_index, bit0, bit1;
+
+	for (uint32_t i = 0; i < 4; ++i) ppu.palette_table[7][i] = transparent;
+
+	for (uint32_t x = 0; x < 8; ++x) {
+		ppu.tile_table[32].bit0[x] = 0;
+		ppu.tile_table[32].bit1[x] = 0;
+		for (uint32_t y = 0; y < 8; ++y) {
+			pixel_index = 8 * (7-x) + (7-y);
+			bool found_color = false;
+
+			if (data[pixel_index].a == 0) data[pixel_index] = transparent;
+			for (uint32_t palette_index = 0; palette_index < 4; ++palette_index) {
+				if (data[pixel_index] == ppu.palette_table[7][palette_index]) {
+					bit0 = palette_index % 2;
+					bit1 = palette_index / 2;
+					ppu.tile_table[32].bit0[x] |= bit0 << y;
+					ppu.tile_table[32].bit1[x] |= bit1 << y;
+					found_color = true;
+					break;
+				}
+			}
+			if (!found_color) {
+				color_count++;
+				ppu.palette_table[7][color_count] = data[pixel_index];
+				bit0 = color_count % 2;
+				bit1 = color_count / 2;
+				ppu.tile_table[32].bit0[x] |= bit0 << y;
+				ppu.tile_table[32].bit1[x] |= bit1 << y;
+			}
+		}
+	}
 
 	{ //use tiles 0-16 as some weird dot pattern thing:
 		std::array< uint8_t, 8*8 > distance;
@@ -49,7 +91,7 @@ PlayMode::PlayMode() {
 	}
 
 	//use sprite 32 as a "player":
-	ppu.tile_table[32].bit0 = {
+	/*ppu.tile_table[32].bit0 = {
 		0b01111110,
 		0b11111111,
 		0b11111111,
@@ -68,7 +110,7 @@ PlayMode::PlayMode() {
 		0b00100100,
 		0b00000000,
 		0b00000000,
-	};
+	};*/
 
 	//makes the outside of tiles 0-16 solid:
 	ppu.palette_table[0] = {
@@ -87,12 +129,12 @@ PlayMode::PlayMode() {
 	};
 
 	//used for the player:
-	ppu.palette_table[7] = {
+	/*ppu.palette_table[7] = {
 		glm::u8vec4(0x00, 0x00, 0x00, 0x00),
 		glm::u8vec4(0xff, 0xff, 0x00, 0xff),
 		glm::u8vec4(0x00, 0x00, 0x00, 0xff),
 		glm::u8vec4(0x00, 0x00, 0x00, 0xff),
-	};
+	};*/
 
 	//used for the misc other sprites:
 	ppu.palette_table[6] = {
