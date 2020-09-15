@@ -26,10 +26,21 @@ struct PlayMode : Mode {
 	//player:
 	glm::vec2 player_at = glm::vec2(124.0f, 100.0f);
 	bool dropping = true;
+	bool lost = false;
+
 	float peak_height = 100.0f;
+	float new_peak_height = 100.0f;
 
 	//coin:
 	glm::vec2 coin_at = glm::vec2(0.0f);
+
+	//cloud:
+	std::vector< glm::vec2 > cloud_at;
+
+	//camera:
+	float camera_height = 0.0f;
+
+	bool restart = true;
 
 	//----- drawing handled by PPU466 -----
 

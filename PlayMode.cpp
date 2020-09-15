@@ -7,6 +7,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <random>
+#include <time.h>
 
 #include "load_save_png.hpp"
 
@@ -24,7 +25,9 @@ PlayMode::PlayMode() {
 		"player_dropping_upper",
 		"player_dropping_lower",
 		"coin",
-		"cloud"
+		"cloud",
+		"bg",
+		"tramp"
 	};
 
 	for (uint32_t i = 0; i < sprites.size(); i++) {
@@ -35,8 +38,6 @@ PlayMode::PlayMode() {
 		uint32_t color_count = 0;
 		uint32_t pixel_index, bit0, bit1;
 		glm::u8vec4 transparent = glm::u8vec4(0x00, 0x00, 0x00, 0x00);
-
-		for (uint32_t j = 0; j < 4; ++j) ppu.palette_table[i][j] = transparent;
 
 		for (uint32_t x = 0; x < 8; ++x) {
 			ppu.tile_table[i].bit0[x] = 0;
@@ -81,6 +82,8 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			right.downs += 1;
 			right.pressed = true;
 			return true;
+		} else if (evt.key.keysym.sym == SDLK_r) {
+			restart = true;
 		}
 	} else if (evt.type == SDL_KEYUP) {
 		if (evt.key.keysym.sym == SDLK_LEFT) {
@@ -96,21 +99,57 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 }
 
 void PlayMode::update(float elapsed) {
+	srand((unsigned)time(0));
 
-	float vSpeed = std::min(2000.0f, (peak_height - player_at.y) * 2.0f);
+	if (restart) {
+		player_at = glm::vec2(124.0f, 100.0f);
+		dropping = true;
+		peak_height = 100.0f;
+		new_peak_height = 100.0f;
+		coin_at = glm::vec2(0.0f);
+		cloud_at = {};
+		for (uint32_t i = 0; i < 16; i++) {
+			cloud_at.emplace_back(glm::vec2((rand() / (float)RAND_MAX) * 256.0f,
+				                            (rand() / (float)RAND_MAX) * 240.0f + 120.0f));
+		}
+		camera_height = 0.0f;
+		lost = false;
+		restart = false;
+	}
+
+	float vSpeed = std::min(200.0f, (peak_height - player_at.y) * 3.0f);
 	if (dropping) vSpeed = -vSpeed;
 
-	constexpr float hSpeed = 30.0f;
+	constexpr float hSpeed = 80.0f;
 	if (left.pressed) player_at.x -= hSpeed * elapsed;
 	if (right.pressed) player_at.x += hSpeed * elapsed;
+	player_at.x = std::max(0.0f, std::min(248.0f, player_at.x));
 
-	if (dropping) {
-		player_at.y += std::max(-player_at.y, std::min(-0.2f, vSpeed * elapsed));
-		if (player_at.y == 0) dropping = false;
+	if (!lost) {
+		if (dropping) {
+			player_at.y += std::max(13.0f - player_at.y, std::min(-0.2f, vSpeed * elapsed));
+			if (player_at.y == 13.0f) {
+				dropping = false;
+				if (player_at.x < 116 || player_at.x > 132) lost = true;
+				else peak_height = new_peak_height;
+			}
+		} else {
+			player_at.y += std::min(peak_height - player_at.y, std::max(0.2f, vSpeed * elapsed));
+			if (player_at.y == peak_height) dropping = true;
+		}
 	}
-	else {
-		player_at.y += std::min(peak_height - player_at.y, std::max(0.2f, vSpeed * elapsed));
-		if (player_at.y == peak_height) dropping = true;
+
+	if (coin_at == glm::vec2(0.0f)) {
+		coin_at = glm::vec2((rand() / (float)RAND_MAX) * 160.0f + 44.0f, new_peak_height + 12.0f);
+	}
+	if (-16.0f <= player_at.y - coin_at.y && player_at.y - coin_at.y <= 8.0f &&
+		-8.0f <= player_at.x - coin_at.x && player_at.x - coin_at.x <= 8.0f) {
+		new_peak_height = peak_height + 20.0f;
+		coin_at = glm::vec2((rand() / (float)RAND_MAX) * 160.0f + 44.0f, new_peak_height + 12.0f);
+	}
+
+	if (player_at.y > 120.0f) {
+		camera_height = player_at.y - 120.0f;
 	}
 
 	//reset button press counters:
@@ -121,64 +160,61 @@ void PlayMode::update(float elapsed) {
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
 	//--- set ppu state based on game state ---
 
-	////background color will be some hsv-like fade:
-	//ppu.background_color = glm::u8vec4(
-	//	std::min(255,std::max(0,int32_t(255 * 0.5f * (0.5f + std::sin( 2.0f * M_PI * (background_fade + 0.0f / 3.0f) ) ) ))),
-	//	std::min(255,std::max(0,int32_t(255 * 0.5f * (0.5f + std::sin( 2.0f * M_PI * (background_fade + 1.0f / 3.0f) ) ) ))),
-	//	std::min(255,std::max(0,int32_t(255 * 0.5f * (0.5f + std::sin( 2.0f * M_PI * (background_fade + 2.0f / 3.0f) ) ) ))),
-	//	0xff
-	//);
 	ppu.background_color = glm::u8vec4(0x87, 0xce, 0xeb, 0xff);
 
-	////tilemap gets recomputed every frame as some weird plasma thing:
-	////NOTE: don't do this in your game! actually make a map or something :-)
-	//for (uint32_t y = 0; y < PPU466::BackgroundHeight; ++y) {
-	//	for (uint32_t x = 0; x < PPU466::BackgroundWidth; ++x) {
-	//		//TODO: make weird plasma thing
-	//		ppu.background[x+PPU466::BackgroundWidth*y] = ((x+y)%16);
-	//	}
-	//}
-
-	////background scroll:
-	//ppu.background_position.x = int32_t(-0.5f * player_at.x);
-	//ppu.background_position.y = int32_t(-0.5f * player_at.y);
-
-	////player sprite:
-	//ppu.sprites[0].x = int32_t(player_at.x);
-	//ppu.sprites[0].y = int32_t(player_at.y);
-	//ppu.sprites[0].index = 0;
-	//ppu.sprites[0].attributes = 0;
-
-	////some other misc sprites:
-	//for (uint32_t i = 1; i < 63; ++i) {
-	//	float amt = (i + 2.0f * background_fade) / 62.0f;
-	//	ppu.sprites[i].x = int32_t(0.5f * PPU466::ScreenWidth + std::cos( 2.0f * M_PI * amt * 5.0f + 0.01f * player_at.x) * 0.4f * PPU466::ScreenWidth);
-	//	ppu.sprites[i].y = int32_t(0.5f * PPU466::ScreenHeight + std::sin( 2.0f * M_PI * amt * 3.0f + 0.01f * player_at.y) * 0.4f * PPU466::ScreenWidth);
-	//	ppu.sprites[i].index = 32;
-	//	ppu.sprites[i].attributes = 6;
-	//	if (i % 2) ppu.sprites[i].attributes |= 0x80; //'behind' bit
-	//}
+	for (uint32_t i = 0; i < 24; ++i) {
+		ppu.sprites[i].x = 255;
+		ppu.sprites[i].y = 255;
+		ppu.sprites[3].index = 0;
+		ppu.sprites[3].attributes = 128;
+	}
 
 	//player sprite
 	if (dropping) {
 		ppu.sprites[3].x = int32_t(player_at.x);
-		ppu.sprites[3].y = int32_t(player_at.y);
+		ppu.sprites[3].y = int32_t(player_at.y - camera_height);
 		ppu.sprites[3].index = 3;
 		ppu.sprites[3].attributes = 3;
 		ppu.sprites[2].x = int32_t(player_at.x);
-		ppu.sprites[2].y = int32_t(player_at.y + 8);
+		ppu.sprites[2].y = int32_t(player_at.y + 8 - camera_height);
 		ppu.sprites[2].index = 2;
 		ppu.sprites[2].attributes = 2;
 	}
 	else {
 		ppu.sprites[1].x = int32_t(player_at.x);
-		ppu.sprites[1].y = int32_t(player_at.y);
+		ppu.sprites[1].y = int32_t(player_at.y - camera_height);
 		ppu.sprites[1].index = 1;
 		ppu.sprites[1].attributes = 1;
 		ppu.sprites[0].x = int32_t(player_at.x);
-		ppu.sprites[0].y = int32_t(player_at.y + 8);
+		ppu.sprites[0].y = int32_t(player_at.y + 8 - camera_height);
 		ppu.sprites[0].index = 0;
 		ppu.sprites[0].attributes = 0;
+	}
+
+	//coin sprite
+	if (coin_at.y - camera_height <= 240) {
+		ppu.sprites[4].x = int32_t(coin_at.x);
+		ppu.sprites[4].y = int32_t(coin_at.y - camera_height);
+		ppu.sprites[4].index = 4;
+		ppu.sprites[4].attributes = 4;
+	}
+
+	//trampoline sprite
+	if (camera_height <= 4.0f) {
+		ppu.sprites[7].x = int32_t(124);
+		ppu.sprites[7].y = int32_t(10 - camera_height);
+		ppu.sprites[7].index = 7;
+		ppu.sprites[7].attributes = 7;
+	}
+
+	//cloud sprites
+	for (uint32_t i = 0; i < 16; i++) {
+		if (!(camera_height < 120 && cloud_at[i].y - camera_height > 240)) {
+			ppu.sprites[8 + i].x = int32_t(cloud_at[i].x);
+			ppu.sprites[8 + i].y = int32_t(cloud_at[i].y - camera_height);
+			ppu.sprites[8 + i].index = 5;
+			ppu.sprites[8 + i].attributes = 5;
+		}
 	}
 
 	//--- actually draw ---
