@@ -1,8 +1,8 @@
-# (TODO: your game's title)
+Jump
 
-Author: (TODO: your name)
+Author: Pengtao Ni
 
-Design: (TODO: In two sentences or fewer, describe what is new and interesting about your game.)
+Design: The player controls a character who's jumping on a trampoline. Each time the character gets a coin, it jumps higher.
 
 Screen Shot:
 
@@ -10,13 +10,14 @@ Screen Shot:
 
 How Your Asset Pipeline Works:
 
-(TODO: describe the steps in your asset pipeline, from source files to tiles/backgrounds/whatever you upload to the PPU466.)
+PNG files (8*8 pixels edited with Photoshop) in assets folder are imported and processed into tiles and palettes at run time.
 
 How To Play:
 
-(TODO: describe the controls and (if needed) goals/strategy.)
+Left / right arrow controls the character's movement.
+"R" restarts the game.
 
-Sources: (TODO: list a source URL for any assets you did not create yourself. Make sure you have a license for the asset.)
+Sources: None
 
 This game was built with [NEST](NEST.md).
 

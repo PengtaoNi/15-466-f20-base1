@@ -19,7 +19,7 @@ PlayMode::PlayMode() {
 	//  make yourself a script that spits out the code that you paste in here
 	//   and check that script into your repository.
 
-	std::vector< std::string > sprites = {
+	std::vector< std::string > raw_tiles = {
 		"player_rising_upper", 
 		"player_rising_lower",
 		"player_dropping_upper",
@@ -30,18 +30,16 @@ PlayMode::PlayMode() {
 		"tramp"
 	};
 
-	for (uint32_t i = 0; i < sprites.size(); i++) {
+	for (uint32_t i = 0; i < raw_tiles.size(); i++) {
 		std::vector< glm::u8vec4 > data;
 		glm::uvec2 size;
-		load_png("assets/" + sprites[i] + ".png", &size, &data, UpperLeftOrigin);
+		load_png("assets/" + raw_tiles[i] + ".png", &size, &data, UpperLeftOrigin);
 
 		uint32_t color_count = 0;
 		uint32_t pixel_index, bit0, bit1;
 		glm::u8vec4 transparent = glm::u8vec4(0x00, 0x00, 0x00, 0x00);
 
 		for (uint32_t x = 0; x < 8; ++x) {
-			ppu.tile_table[i].bit0[x] = 0;
-			ppu.tile_table[i].bit1[x] = 0;
 			for (uint32_t y = 0; y < 8; ++y) {
 				pixel_index = 8 * (7 - x) + (7 - y);
 				bool found_color = false;
