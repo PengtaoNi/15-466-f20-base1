@@ -97,7 +97,6 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 }
 
 void PlayMode::update(float elapsed) {
-	srand((unsigned)time(0));
 
 	if (restart) {
 		player_at = glm::vec2(124.0f, 100.0f);
